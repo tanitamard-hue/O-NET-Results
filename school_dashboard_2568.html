@@ -212,6 +212,17 @@ body { font-family: 'Sarabun', sans-serif; background: var(--bg); color: var(--i
 .leg-dot { width:10px; height:10px; border-radius:3px; }
 .no-data-panel { text-align:center; padding:3rem; color:var(--ink-lt); font-size:14px; }
 
+.trend-section {
+  background:var(--white); border:1px solid var(--border);
+  border-radius:var(--radius); padding:1.5rem; margin-bottom:1.5rem;
+}
+.trend-title { font-family:'Kanit',sans-serif; font-size:14px; font-weight:500; color:var(--ink-mid); margin-bottom:1rem; }
+.trend-pills { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:1rem; }
+.trend-pill { display:flex; align-items:center; gap:6px; padding:4px 12px; border-radius:99px; font-size:12px; font-weight:500; }
+.trend-pill.up   { background:#E4F5EE; color:#1A8C5E; }
+.trend-pill.down { background:#FDECEA; color:#B83232; }
+.trend-pill.same { background:var(--blue-lt); color:var(--blue); }
+
 .site-footer { text-align:center; padding:1.5rem; font-size:12px; color:var(--ink-lt); border-top:1px solid var(--border); margin-top:1rem; }
 
 @media (max-width:600px) {
@@ -283,6 +294,11 @@ body { font-family: 'Sarabun', sans-serif; background: var(--bg); color: var(--i
       <div class="chart-title">คะแนนรายวิชา (เต็ม 100 คะแนน)</div>
       <div class="legend-row" id="detail-legend"></div>
       <div id="chart-svg-wrap"></div>
+    </div>
+    <div class="trend-section" id="trend-section" style="display:none">
+      <div class="trend-title">แนวโน้มคะแนนรวม ย้อนหลัง 3 ปีการศึกษา</div>
+      <div class="trend-pills" id="trend-pills"></div>
+      <div id="trend-svg-wrap"></div>
     </div>
   </div>
 </div>
@@ -394,6 +410,64 @@ const SUBJECTS = [
   { key:'sci',  label:'วิทยาศาสตร์', front:'#C47D0E', top:'#EFBE6A', side:'#8A5508', dot:'#C47D0E' },
   { key:'eng',  label:'ภาษาอังกฤษ', front:'#8B3A8B', top:'#C97EC9', side:'#5C215C', dot:'#8B3A8B' },
 ];
+
+/* ─── ข้อมูลย้อนหลัง 3 ปี พร้อมผลต่างและร้อยละ ─── */
+/* โครงสร้าง: y2566, y2567, y2568, d1=ผลต่าง66→67, p1=ร้อยละ66→67, d2=ผลต่าง67→68, p2=ร้อยละ67→68 */
+const TREND = {
+  p6: {
+    'ชุมชนวัดช่อแล':            { y2566:39.22, y2567:31.97, y2568:27.12, d1:-7.25,  p1:-18.49, d2:-4.85,  p2:-15.17 },
+    'บ้านก๋ายน้อย':             { y2566:35.63, y2567:25.61, y2568:25.21, d1:-10.02, p1:-28.12, d2:-0.40,  p2:-1.56  },
+    'บ้านทับเดื่อ':              { y2566:31.01, y2567:52.93, y2568:35.94, d1:21.92,  p1:70.69,  d2:-16.99, p2:-32.10 },
+    'บ้านบวกหมื้อ':             { y2566:36.95, y2567:40.42, y2568:38.46, d1:3.47,   p1:9.39,   d2:-1.96,  p2:-4.85  },
+    'บ้านปง อินทขิลวิทยาคาร':  { y2566:38.13, y2567:33.02, y2568:30.69, d1:-5.11,  p1:-13.40, d2:-2.33,  p2:-7.06  },
+    'บ้านปางกว้าง':             { y2566:39.08, y2567:39.12, y2568:33.02, d1:0.04,   p1:0.10,   d2:-6.10,  p2:-15.59 },
+    'บ้านปางไม้แดง':            { y2566:36.53, y2567:38.83, y2568:40.83, d1:2.30,   p1:6.30,   d2:2.00,   p2:5.15   },
+    'บ้านปางห้วยตาด':           { y2566:34.21, y2567:29.24, y2568:28.46, d1:-4.97,  p1:-14.53, d2:-0.66,  p2:-2.26  },
+    'บ้านปางฮ่าง':              { y2566:41.25, y2567:34.81, y2568:32.66, d1:-6.44,  p1:-15.61, d2:-2.15,  p2:-6.18  },
+    'บ้านเป้าวิทยาคาร':         { y2566:32.90, y2567:37.37, y2568:30.34, d1:4.47,   p1:13.59,  d2:-7.03,  p2:-18.81 },
+    'บ้านผึ้ง':                 { y2566:39.88, y2567:37.73, y2568:36.13, d1:-2.15,  p1:-5.39,  d2:-1.60,  p2:-4.24  },
+    'บ้านเมืองกื้ด':            { y2566:34.88, y2567:29.48, y2568:31.97, d1:-5.40,  p1:-15.48, d2:2.49,   p2:8.45   },
+    'บ้านแม่ตะมาน':             { y2566:36.64, y2567:41.58, y2568:30.64, d1:4.94,   p1:13.48,  d2:-10.94, p2:-26.31 },
+    'บ้านแม่แมม':               { y2566:24.59, y2567:30.59, y2568:26.51, d1:6.00,   p1:24.40,  d2:-4.08,  p2:-13.34 },
+    'บ้านแม่แสะ':               { y2566:34.72, y2567:28.64, y2568:28.80, d1:-6.08,  p1:-17.51, d2:0.16,   p2:0.56   },
+    'บ้านแม่ไคร้':              { y2566:30.45, y2567:33.23, y2568:31.86, d1:2.78,   p1:9.13,   d2:-1.37,  p2:-4.12  },
+    'บ้านแม่เลา':               { y2566:28.47, y2567:35.84, y2568:62.78, d1:7.37,   p1:25.89,  d2:26.94,  p2:75.17  },
+    'บ้านผาหมอน':               { y2566:27.41, y2567:29.88, y2568:22.15, d1:2.47,   p1:9.01,   d2:-7.73,  p2:-25.87 },
+    'ป่าจี้วังแดงวิทยา':        { y2566:36.52, y2567:32.31, y2568:27.40, d1:-4.21,  p1:-11.53, d2:-4.91,  p2:-15.20 },
+    'ป่าแป๋วิทยา':              { y2566:40.30, y2567:43.36, y2568:40.00, d1:3.06,   p1:7.59,   d2:-3.36,  p2:-7.75  },
+    'ภูดินวิทยา':               { y2566:40.38, y2567:47.19, y2568:26.31, d1:6.81,   p1:16.86,  d2:-20.88, p2:-44.25 },
+    'ร่ำเปิงวิทยา':             { y2566:36.90, y2567:32.80, y2568:30.12, d1:-4.10,  p1:-11.11, d2:-2.68,  p2:-8.17  },
+    'วัดท่าข้าม':               { y2566:42.79, y2567:32.97, y2568:33.02, d1:-9.82,  p1:-22.95, d2:0.05,   p2:0.15   },
+    'วัดทุ่งหลวง':              { y2566:54.14, y2567:45.54, y2568:49.21, d1:-8.60,  p1:-15.88, d2:3.67,   p2:8.06   },
+    'วัดนาเม็ง':                { y2566:37.33, y2567:43.62, y2568:32.49, d1:6.29,   p1:16.85,  d2:-11.13, p2:-25.52 },
+    'วัดบ้านเหล่า':             { y2566:33.39, y2567:32.92, y2568:28.04, d1:-0.47,  p1:-1.41,  d2:-4.88,  p2:-14.82 },
+    'วัดหนองออน':               { y2566:40.35, y2567:40.65, y2568:39.11, d1:0.30,   p1:0.74,   d2:-1.54,  p2:-3.79  },
+    'วัดแม่กะ':                 { y2566:55.55, y2567:44.26, y2568:36.92, d1:-11.29, p1:-20.32, d2:-7.34,  p2:-16.58 },
+    'วัดห้วยไร่':               { y2566:37.35, y2567:44.17, y2568:37.59, d1:6.82,   p1:18.26,  d2:-6.58,  p2:-14.90 },
+    'สบเปิงวิทยา':              { y2566:45.78, y2567:40.52, y2568:31.66, d1:-5.26,  p1:-11.49, d2:-8.86,  p2:-21.87 },
+    'สันป่ายางวิทยาคาร':        { y2566:33.46, y2567:27.42, y2568:29.15, d1:-6.04,  p1:-18.05, d2:1.73,   p2:6.31   },
+    'สันป่าสักวิทยา':           { y2566:43.16, y2567:41.60, y2568:34.07, d1:-1.56,  p1:-3.61,  d2:-7.53,  p2:-18.10 },
+    'สันมหาพนวิทยา':            { y2566:34.73, y2567:35.75, y2568:29.60, d1:1.02,   p1:2.94,   d2:-6.15,  p2:-17.20 },
+  },
+  m3: {
+    'บ้านเป้าวิทยาคาร':         { y2566:null,  y2567:37.69, y2568:33.83, d1:null,   p1:null,   d2:-3.86,  p2:-10.24 },
+    'บ้านเมืองกื้ด':            { y2566:30.86, y2567:32.68, y2568:31.14, d1:1.82,   p1:5.90,   d2:-1.54,  p2:-4.71  },
+    'บ้านแม่ตะมาน':             { y2566:38.97, y2567:35.57, y2568:39.51, d1:-3.40,  p1:-8.72,  d2:3.94,   p2:11.08  },
+    'บ้านแม่ไคร้':              { y2566:33.48, y2567:22.58, y2568:27.96, d1:-10.90, p1:-32.56, d2:5.38,   p2:23.83  },
+    'บ้านปง อินทขิลวิทยาคาร':  { y2566:32.92, y2567:35.43, y2568:38.11, d1:2.51,   p1:7.62,   d2:2.68,   p2:7.56   },
+    'บ้านปางห้วยตาด':           { y2566:28.80, y2567:30.39, y2568:28.46, d1:1.59,   p1:5.52,   d2:-1.93,  p2:-6.35  },
+    'บ้านปางไม้แดง':            { y2566:40.62, y2567:35.06, y2568:36.42, d1:-5.56,  p1:-13.69, d2:1.36,   p2:3.88   },
+    'ป่าจี้วังแดงวิทยา':        { y2566:33.81, y2567:31.57, y2568:29.62, d1:-2.24,  p1:-6.63,  d2:-1.95,  p2:-6.18  },
+    'ป่าแป๋วิทยา':              { y2566:33.12, y2567:35.16, y2568:54.05, d1:2.04,   p1:6.16,   d2:18.89,  p2:53.73  },
+    'ร่ำเปิงวิทยา':             { y2566:35.59, y2567:30.01, y2568:41.34, d1:-5.58,  p1:-15.68, d2:11.33,  p2:37.75  },
+    'วัดท่าข้าม':               { y2566:40.69, y2567:35.91, y2568:34.77, d1:-4.78,  p1:-11.75, d2:-1.14,  p2:-3.17  },
+    'วัดบ้านเหล่า':             { y2566:26.35, y2567:29.83, y2568:28.55, d1:3.48,   p1:13.21,  d2:-1.28,  p2:-4.29  },
+    'วัดปางมะกล้วย':            { y2566:34.34, y2567:33.91, y2568:56.80, d1:-0.43,  p1:-1.25,  d2:22.89,  p2:67.50  },
+    'ชุมชนวัดช่อแล':            { y2566:33.39, y2567:30.75, y2568:33.35, d1:-2.64,  p1:-7.91,  d2:2.60,   p2:8.46   },
+    'สบเปิงวิทยา':              { y2566:33.10, y2567:34.67, y2568:33.57, d1:1.57,   p1:4.74,   d2:-1.10,  p2:-3.17  },
+    'สันมหาพนวิทยา':            { y2566:32.26, y2567:31.81, y2568:34.69, d1:-0.45,  p1:-1.39,  d2:2.88,   p2:9.05   },
+  },
+};
 
 /* ─── STATE ─── */
 let currentNetwork = null;
@@ -529,7 +603,7 @@ function renderDetailPage() {
 
   document.getElementById('detail-name').textContent = currentSchool;
   document.getElementById('detail-badge').textContent =
-    `${net.name} · ${detailLevel==='p6' ? 'ชั้นประถมศึกษาปีที่ 6' : 'ชั้นมัธยมศึกษาปีที่ 3'}`;
+    `${net.name} · ${detailLevel==='p6' ? 'ชั้นประถมศึกษาปีที่ 6' : 'ชั้นมัธยมศึกษาปีที่ 3'} · ปีการศึกษา 2568`;
 
   document.getElementById('detailTab-p6').classList.toggle('active', detailLevel==='p6');
   document.getElementById('detailTab-m3').classList.toggle('active', detailLevel==='m3');
@@ -563,6 +637,106 @@ function renderDetailPage() {
   ).join('');
 
   render3DChart(r);
+  renderTrendChart();
+}
+
+/* ─── TREND LINE CHART พร้อมผลต่างและร้อยละบนกราฟ ─── */
+function renderTrendChart() {
+  const t = TREND[detailLevel][currentSchool];
+  const section = document.getElementById('trend-section');
+  if (!t) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+
+  // ซ่อน trend-pills (ไม่ใช้ตารางแล้ว)
+  document.getElementById('trend-pills').innerHTML = '';
+
+  const years = ['2566','2567','2568'];
+  const vals  = [t.y2566, t.y2567, t.y2568];
+
+  const W=600, H=260, mL=52, mR=30, mT=50, mB=42;
+  const cW=W-mL-mR, cH=H-mT-mB;
+  const validVals = vals.filter(v => v !== null);
+  const minV = Math.max(0, Math.min(...validVals) - 12);
+  const maxV = Math.min(100, Math.max(...validVals) + 12);
+  const yS = v => cH - ((v-minV)/(maxV-minV))*cH;
+  const xS = i => (i/(years.length-1))*cW;
+
+  // grid
+  const step = (maxV-minV) > 40 ? 20 : 10;
+  const ticks = [];
+  for (let v=Math.ceil(minV/step)*step; v<=maxV; v+=step) ticks.push(v);
+  const grid = ticks.map(v=>`
+    <line x1="0" y1="${yS(v)}" x2="${cW}" y2="${yS(v)}" stroke="rgba(100,120,160,0.12)" stroke-width="1"/>
+    <text x="-7" y="${yS(v)+4}" text-anchor="end" font-size="11" fill="#8492A6">${v.toFixed(0)}</text>`).join('');
+
+  const pts = vals.map((v,i) => v!==null ? {x:xS(i), y:yS(v), v} : null);
+  const vpts = pts.filter(p=>p!==null);
+  const area = vpts.length>=2
+    ? `M${vpts[0].x},${cH} `+vpts.map(p=>`L${p.x},${p.y}`).join(' ')+` L${vpts[vpts.length-1].x},${cH} Z`
+    : '';
+  const line = vpts.length>=2 ? 'M'+vpts.map(p=>`${p.x},${p.y}`).join(' L') : '';
+
+  // จุดข้อมูล + คะแนนเหนือจุด
+  const dots = pts.map((p,i) => p ? `
+    <circle cx="${p.x}" cy="${p.y}" r="6" fill="#2D7DD2" stroke="white" stroke-width="2.5"/>
+    <text x="${p.x}" y="${p.y-14}" text-anchor="middle" font-size="13" font-weight="700" fill="#1A5EA8">${p.v.toFixed(2)}</text>`
+    : '').join('');
+
+  // ป้ายผลต่าง+ร้อยละ ระหว่างจุด ── วางตรงกลางเส้นเชื่อม
+  let diffLabels = '';
+
+  // ช่วง 66→67
+  if (pts[0] && pts[1] && t.d1!==null) {
+    const mx = (pts[0].x + pts[1].x)/2;
+    const my = (pts[0].y + pts[1].y)/2 - 22; // ยกขึ้นเหนือเส้น
+    const isPos = t.d1 >= 0;
+    const col   = isPos ? '#1A8C5E' : '#B83232';
+    const icon  = isPos ? '▲' : '▼';
+    const dTxt  = `${icon} ${Math.abs(t.d1).toFixed(2)}`;
+    const pTxt  = `(${isPos?'+':''}${t.p1.toFixed(2)}%)`;
+    // กล่องพื้นหลัง
+    diffLabels += `
+      <rect x="${mx-36}" y="${my-14}" width="72" height="30" rx="6"
+            fill="${isPos?'#E4F5EE':'#FDECEA'}" opacity="0.95"/>
+      <text x="${mx}" y="${my}" text-anchor="middle" font-size="11.5" font-weight="700" fill="${col}">${dTxt}</text>
+      <text x="${mx}" y="${my+13}" text-anchor="middle" font-size="10.5" fill="${col}">${pTxt}</text>`;
+  }
+
+  // ช่วง 67→68
+  if (pts[1] && pts[2] && t.d2!==null) {
+    const mx = (pts[1].x + pts[2].x)/2;
+    const my = (pts[1].y + pts[2].y)/2 - 22;
+    const isPos = t.d2 >= 0;
+    const col   = isPos ? '#1A8C5E' : '#B83232';
+    const icon  = isPos ? '▲' : '▼';
+    const dTxt  = `${icon} ${Math.abs(t.d2).toFixed(2)}`;
+    const pTxt  = `(${isPos?'+':''}${t.p2.toFixed(2)}%)`;
+    diffLabels += `
+      <rect x="${mx-36}" y="${my-14}" width="72" height="30" rx="6"
+            fill="${isPos?'#E4F5EE':'#FDECEA'}" opacity="0.95"/>
+      <text x="${mx}" y="${my}" text-anchor="middle" font-size="11.5" font-weight="700" fill="${col}">${dTxt}</text>
+      <text x="${mx}" y="${my+13}" text-anchor="middle" font-size="10.5" fill="${col}">${pTxt}</text>`;
+  }
+
+  // ชื่อปีใต้กราฟ
+  const xlabels = years.map((yr,i)=>`
+    <text x="${xS(i)}" y="${cH+20}" text-anchor="middle" font-size="12" fill="#4A5568">ปี ${yr}</text>`).join('');
+
+  const axes = `
+    <line x1="0" y1="${cH}" x2="${cW}" y2="${cH}" stroke="rgba(100,120,160,0.3)" stroke-width="1.5"/>
+    <line x1="0" y1="0" x2="0" y2="${cH}" stroke="rgba(100,120,160,0.3)" stroke-width="1.5"/>`;
+
+  document.getElementById('trend-svg-wrap').innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg">
+      <g transform="translate(${mL},${mT})">
+        ${grid}${axes}
+        ${area?`<path d="${area}" fill="rgba(45,125,210,0.07)"/>`:''}
+        ${line?`<path d="${line}" fill="none" stroke="#2D7DD2" stroke-width="2.5" stroke-linejoin="round"/>`:''}
+        ${diffLabels}
+        ${dots}
+        ${xlabels}
+      </g>
+    </svg>`;
 }
 
 /* ─── 3D SVG BAR CHART ─── */
